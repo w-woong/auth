@@ -126,6 +126,7 @@ func (d *AuthorizeHandler) CallbackWithAuthRequest(w http.ResponseWriter, r *htt
 
 	d.tokenSetter.SetTokenIdentifier(w, tokenDto.ID)
 	d.tokenSetter.SetIDToken(w, tokenDto.IDToken)
+	d.tokenSetter.SetTokenSource(w, tokenDto.TokenSource)
 
 	// TODO: respond with static page that leads to the app or web page
 	// if err = si.EncodeJson(w, tokenDto.HideSensitive()); err != nil {
@@ -261,6 +262,7 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 			d.usc.RemoveToken(ctx, tokenIdentifier)
 			d.tokenSetter.SetTokenIdentifier(w, "")
 			d.tokenSetter.SetIDToken(w, "")
+			d.tokenSetter.SetTokenSource(w, "")
 
 			refreshedOauth2Token, err := d.usc.Refresh(ctx, foundOauth2Token)
 			if err != nil {
@@ -278,6 +280,7 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 
 			d.tokenSetter.SetTokenIdentifier(w, refreshedTokenDto.ID)
 			d.tokenSetter.SetIDToken(w, refreshedTokenDto.IDToken)
+			d.tokenSetter.SetTokenSource(w, refreshedTokenDto.TokenSource)
 			if err := si.EncodeJson(w, refreshedTokenDto.HideSensitive()); err != nil {
 				log.Println(err)
 			}
@@ -287,18 +290,21 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 		d.usc.RemoveToken(ctx, tokenIdentifier)
 		d.tokenSetter.SetTokenIdentifier(w, "")
 		d.tokenSetter.SetIDToken(w, "")
+		d.tokenSetter.SetTokenSource(w, "")
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
+	tokenSource := d.tokenGetter.GetTokenSource(r)
 	d.tokenSetter.SetTokenIdentifier(w, tokenIdentifier)
 	d.tokenSetter.SetIDToken(w, idTokenStr)
+	d.tokenSetter.SetTokenSource(w, tokenSource)
 
 	resTokenDto := dto.Token{
-		ID:      tokenIdentifier,
-		IDToken: idTokenStr,
-		Expiry:  claims.ExpiresAt.Unix(),
+		ID:          tokenIdentifier,
+		IDToken:     idTokenStr,
+		TokenSource: tokenSource,
+		Expiry:      claims.ExpiresAt.Unix(),
 	}
 
 	if err := si.EncodeJson(w, resTokenDto.HideSensitive()); err != nil {

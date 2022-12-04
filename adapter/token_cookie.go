@@ -9,15 +9,17 @@ type TokenCookie struct {
 	expireAfter         time.Duration
 	tokenIdentifierName string
 	idTokenName         string
+	tokenSourceName     string
 }
 
 func NewTokenCookie(expireAfter time.Duration,
-	tokenIdentifierName, idTokenName string) *TokenCookie {
+	tokenIdentifierName, idTokenName, tokenSourceName string) *TokenCookie {
 
 	return &TokenCookie{
 		expireAfter:         expireAfter,
 		tokenIdentifierName: tokenIdentifierName,
 		idTokenName:         idTokenName,
+		tokenSourceName:     tokenSourceName,
 	}
 }
 
@@ -57,4 +59,12 @@ func (a *TokenCookie) GetIDToken(r *http.Request) string {
 
 func (a *TokenCookie) SetIDToken(w http.ResponseWriter, idToken string) {
 	set(w, http.SameSiteStrictMode, a.idTokenName, idToken, a.expireAfter, 0)
+}
+
+func (a *TokenCookie) GetTokenSource(r *http.Request) string {
+	return get(r, a.tokenSourceName)
+}
+
+func (a *TokenCookie) SetTokenSource(w http.ResponseWriter, tokenSource string) {
+	set(w, http.SameSiteStrictMode, a.tokenSourceName, tokenSource, a.expireAfter, 0)
 }

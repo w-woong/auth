@@ -137,8 +137,8 @@ func main() {
 	}
 	// repo
 
-	tokenCookie := adapter.NewTokenCookie(1*time.Hour, "tid", "id_token")
-	tokenHeader := adapter.NewTokenHeader("tid", "id_token")
+	tokenCookie := adapter.NewTokenCookie(1*time.Hour, "tid", "id_token", "token_source")
+	tokenHeader := adapter.NewTokenHeader("tid", "id_token", "token_source")
 
 	var tokenTxBeginner common.TxBeginner
 	var tokenRepo port.TokenRepo

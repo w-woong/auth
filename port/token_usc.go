@@ -47,9 +47,11 @@ type TokenGetter interface {
 	GetTokenIdentifier(r *http.Request) string
 	// getIDToken retrieves id_token from cookie or header
 	GetIDToken(r *http.Request) string
+	GetTokenSource(r *http.Request) string
 }
 
 type TokenSetter interface {
 	SetTokenIdentifier(w http.ResponseWriter, val string)
 	SetIDToken(w http.ResponseWriter, val string)
+	SetTokenSource(w http.ResponseWriter, val string)
 }

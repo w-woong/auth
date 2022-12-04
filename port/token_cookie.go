@@ -8,4 +8,7 @@ type TokenCookie interface {
 
 	GetIDToken(r *http.Request) string
 	SetIDToken(w http.ResponseWriter, idToken string)
+
+	GetTokenSource(r *http.Request) string
+	SetTokenSource(w http.ResponseWriter, tokenSource string)
 }
