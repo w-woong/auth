@@ -2,12 +2,8 @@ package main
 
 import (
 	"crypto/tls"
-	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -130,15 +126,15 @@ func main() {
 	authUrl := conf.Client.Oauth2.AuthUrl
 	tokenUrl := conf.Client.Oauth2.TokenUrl
 	openIDConfUrl := conf.Client.Oauth2.OpenIDConfUrl
-	jwksUrl, err := getJwksUrl(openIDConfUrl)
+	jwksUrl, err := validators.GetJwksUrl(openIDConfUrl)
 	if err != nil {
 		logger.Error(err.Error())
 		return
 	}
 	// repo
 
-	tokenCookie := adapter.NewTokenCookie(1*time.Hour, "tid", "id_token", "token_source")
-	tokenHeader := adapter.NewTokenHeader("tid", "id_token", "token_source")
+	tokenCookie := adapter.NewTokenCookie(1*time.Hour, conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName, conf.Client.Oauth2.Token.TokenSourceKeyName)
+	tokenHeader := adapter.NewTokenHeader(conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName, conf.Client.Oauth2.Token.TokenSourceKeyName)
 
 	var tokenTxBeginner common.TxBeginner
 	var tokenRepo port.TokenRepo
@@ -229,26 +225,4 @@ func main() {
 	// } else {
 	// 	log.Fatal(httpServer.ListenAndServe())
 	// }
-}
-
-func getJwksUrl(openIDConfUrl string) (string, error) {
-
-	res, err := http.Get(openIDConfUrl)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-	resb, err := io.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-	m := make(map[string]interface{})
-	if err = json.Unmarshal(resb, &m); err != nil {
-		return "", err
-	}
-	jwksUrl, ok := m["jwks_uri"]
-	if !ok {
-		return "", errors.New("not found")
-	}
-	return jwksUrl.(string), nil
 }

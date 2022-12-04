@@ -40,6 +40,7 @@ client:
       source: 'google'
       id_key_name: 'tid'
       id_token_key_name: 'id_token'
+      token_source_key_name: 'token_source'
     client_id: ''
     client_secret: ''
     redirect_url: 'https://localhost:5558/v1/auth/callback/{token_source}'
@@ -64,5 +65,5 @@ client:
     #   code_verifier_name: 'code_verifier'
 
   user_http:
-    url: 'http://192.168.0.92:8080'
+    url: 'https://192.168.0.92:8080'
     bearer_token: 'ab2316584873095f017f6dfa7a9415794f563fcc473eb3fe65b9167e37fd5a4b'

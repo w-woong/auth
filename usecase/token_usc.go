@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -86,27 +85,6 @@ func (u *TokenUsc) RetrieveAuthUrl(ctx context.Context, authRequestID string) (s
 	return url, nil
 }
 
-// func (u *TokenUsc) ValidateIDToken(ctx context.Context, tokenIdentifier string, idTokenStr string) (dto.Token, error) {
-
-// 	jwtToken, err := u.validateWithJwks(idTokenStr)
-// 	if err != nil {
-// 		return dto.NilToken, err
-// 	}
-
-// 	claims, ok := jwtToken.Claims.(*dto.IDTokenClaims)
-// 	if !ok {
-// 		return dto.NilToken, errors.New("unexpected id token claims")
-// 	}
-
-// 	return dto.Token{
-// 		ID:          tokenIdentifier,
-// 		TokenSource: u.TokenSource(),
-// 		IDToken:     jwtToken.Raw,
-// 		Expiry:      claims.ExpiresAt.Unix(),
-// 	}, nil
-
-// }
-
 func (u *TokenUsc) Exchange(r *http.Request, authState entity.AuthState) (*oauth2.Token, error) {
 
 	var opts []oauth2.AuthCodeOption
@@ -153,13 +131,6 @@ func (u *TokenUsc) SaveToken(ctx context.Context, w http.ResponseWriter, token *
 		return dto.NilToken, err
 	}
 
-	// user registration
-	// registeredUser, err := u.RegisterUser(ctx, tokenForClient.ID, tokenForClient.IDToken)
-	// if err != nil {
-	// 	return dto.NilToken, err
-	// }
-	// fmt.Println(registeredUser.String())
-
 	return tokenForClient, nil
 }
 
@@ -192,17 +163,11 @@ func (u *TokenUsc) RemoveToken(ctx context.Context, id string) (int64, error) {
 }
 
 func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims validators.IDTokenClaims) (userdto.User, error) {
-	// jwtToken, err := u.validateWithJwks(idToken)
-	// if err != nil {
-	// 	return userdto.NilUser, err
-	// }
-	// claims, ok := jwtToken.Claims.(*dto.IDTokenClaims)
-	// if !ok {
-	// 	return userdto.NilUser, errors.New("unexpected token claims")
-	// }
 
 	registeredUser, err := u.userSvc.RegisterUser(ctx, userdto.User{
-		LoginID: claims.Subject,
+		LoginID:     claims.Subject,
+		LoginType:   "token",
+		LoginSource: u.TokenSource(),
 		Emails: userdto.Emails{
 			userdto.Email{
 				Email:    claims.Email,
@@ -220,7 +185,6 @@ func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims vali
 	if err != nil {
 		return userdto.NilUser, err
 	}
-	fmt.Println(registeredUser.String())
 
 	return registeredUser, nil
 }
