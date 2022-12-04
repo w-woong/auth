@@ -284,8 +284,8 @@ github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PK
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/subosito/gotenv v1.4.1 h1:jyEFiXpy21Wm81FBN71l9VoMMV8H8jG+qIK3GCpY6Qs=
 github.com/subosito/gotenv v1.4.1/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
-github.com/w-woong/common v0.0.20 h1:+MOFGkylgtey5O3XqOZi+21mfe21x8a5yeCrDznLwLc=
-github.com/w-woong/common v0.0.20/go.mod h1:ZpP9WEojp7pAvD/gPCpWTrtMOae1RbaXsiPmeL8Tp7k=
+github.com/w-woong/common v0.0.21 h1:R1tX8n0pX8wBiy3sUYHIkdHy2jUtKt2YThCuwdFXpFw=
+github.com/w-woong/common v0.0.21/go.mod h1:ZpP9WEojp7pAvD/gPCpWTrtMOae1RbaXsiPmeL8Tp7k=
 github.com/w-woong/user v0.0.4 h1:mtO0N5c8Kr9YVpc4kkTWsWqcNaje4p9530Y2gnilSzE=
 github.com/w-woong/user v0.0.4/go.mod h1:fiKKeQss2Ag0wNxHDbCOhNQVBjBSxqWzAz+UjBFMoxU=
 github.com/wonksing/structmapper v0.0.4 h1:AyDLkyLMdGS3Nuln9IMF6bNiQktcUUFv6k3wgY8UD48=

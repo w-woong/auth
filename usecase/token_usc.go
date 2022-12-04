@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/w-woong/auth"
 	"github.com/w-woong/auth/authutil"
 	"github.com/w-woong/auth/conv"
 	"github.com/w-woong/auth/dto"
@@ -171,7 +170,7 @@ func (u *TokenUsc) FindOauth2TokenWithIDToken(ctx context.Context, id, idToken s
 		return nil, err
 	}
 	if token.IDToken != idToken {
-		return nil, auth.ErrIDTokenInconsistent
+		return nil, common.ErrIDTokenInconsistent
 	}
 
 	return conv.ToTokenOauth2FromEntity(&token)

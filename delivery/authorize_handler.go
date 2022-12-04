@@ -14,7 +14,6 @@ import (
 	"github.com/go-wonk/si"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/w-woong/auth"
 	"github.com/w-woong/auth/dto"
 	"github.com/w-woong/auth/port"
 	"github.com/w-woong/common"
@@ -252,7 +251,7 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 	_, claims, err := d.validator.Validate(idTokenStr)
 	if err != nil {
 		log.Println(err)
-		if errors.Is(err, auth.ErrTokenExpired) {
+		if errors.Is(err, common.ErrTokenExpired) {
 			foundOauth2Token, err := d.usc.FindOauth2TokenWithIDToken(ctx, tokenIdentifier, idTokenStr)
 			if err != nil {
 				log.Println(err)

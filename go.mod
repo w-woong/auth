@@ -3,12 +3,10 @@ module github.com/w-woong/auth
 go 1.18
 
 require (
-	github.com/MicahParks/keyfunc v1.7.0
 	github.com/go-wonk/si v0.2.11
-	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/w-woong/common v0.0.20
+	github.com/w-woong/common v0.0.21
 	github.com/w-woong/user v0.0.4
 	github.com/wonksing/structmapper v0.0.4
 	golang.org/x/oauth2 v0.1.0
@@ -16,8 +14,10 @@ require (
 )
 
 require (
+	github.com/MicahParks/keyfunc v1.7.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
