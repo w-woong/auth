@@ -7,10 +7,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/w-woong/auth/delivery"
 	"github.com/w-woong/auth/port"
-	"github.com/w-woong/common/validators"
+	commonport "github.com/w-woong/common/port"
 )
 
-func AuthorizeHandlerRoute(router *mux.Router, usc port.TokenUsc, validator validators.IDTokenValidator,
+func AuthorizeHandlerRoute(router *mux.Router, usc port.TokenUsc, validator commonport.IDTokenValidator,
 	authRequestUsc port.AuthRequestUsc,
 	tokenGetter port.TokenGetter, tokenSetter port.TokenSetter,
 	authRequestWait time.Duration) *delivery.AuthorizeHandler {

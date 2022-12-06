@@ -9,11 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/w-woong/auth/authutil"
 	"github.com/w-woong/auth/conv"
-	"github.com/w-woong/auth/dto"
 	"github.com/w-woong/auth/entity"
 	"github.com/w-woong/auth/port"
 	"github.com/w-woong/common"
-	"github.com/w-woong/common/validators"
+	commondto "github.com/w-woong/common/dto"
 	userdto "github.com/w-woong/user/dto"
 	userport "github.com/w-woong/user/port"
 	"golang.org/x/oauth2"
@@ -102,33 +101,33 @@ func (u *TokenUsc) Exchange(r *http.Request, authState entity.AuthState) (*oauth
 	return token, nil
 }
 
-func (u *TokenUsc) SaveToken(ctx context.Context, w http.ResponseWriter, token *oauth2.Token) (dto.Token, error) {
+func (u *TokenUsc) SaveToken(ctx context.Context, w http.ResponseWriter, token *oauth2.Token) (commondto.Token, error) {
 	tx, err := u.tokenTxBeginner.Begin()
 	if err != nil {
-		return dto.NilToken, err
+		return commondto.NilToken, err
 	}
 	defer tx.Rollback()
 
 	tokenEntity, err := conv.ToTokenEntityFromOauth2(token, uuid.New().String(), u.tokenSource)
 	if err != nil {
-		return dto.NilToken, err
+		return commondto.NilToken, err
 	}
 
 	affected, err := u.tokenRepo.Create(ctx, tx, tokenEntity)
 	if err != nil {
-		return dto.NilToken, err
+		return commondto.NilToken, err
 	}
 	if affected != 1 {
-		return dto.NilToken, errors.New("could not store token")
+		return commondto.NilToken, errors.New("could not store token")
 	}
 
 	tokenForClient, err := conv.ToTokenDto(&tokenEntity)
 	if err != nil {
-		return dto.NilToken, err
+		return commondto.NilToken, err
 	}
 
 	if err = tx.Commit(); err != nil {
-		return dto.NilToken, err
+		return commondto.NilToken, err
 	}
 
 	return tokenForClient, nil
@@ -162,7 +161,7 @@ func (u *TokenUsc) RemoveToken(ctx context.Context, id string) (int64, error) {
 	return rowsAffected, tx.Commit()
 }
 
-func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims validators.IDTokenClaims) (userdto.User, error) {
+func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims commondto.IDTokenClaims) (userdto.User, error) {
 
 	registeredUser, err := u.userSvc.RegisterUser(ctx, userdto.User{
 		LoginID:     claims.Subject,

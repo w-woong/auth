@@ -14,15 +14,15 @@ import (
 	"github.com/go-wonk/si"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/w-woong/auth/dto"
 	"github.com/w-woong/auth/port"
 	"github.com/w-woong/common"
-	"github.com/w-woong/common/validators"
+	commondto "github.com/w-woong/common/dto"
+	commonport "github.com/w-woong/common/port"
 )
 
 type AuthorizeHandler struct {
 	usc             port.TokenUsc
-	validator       validators.IDTokenValidator
+	validator       commonport.IDTokenValidator
 	authRequestUsc  port.AuthRequestUsc
 	authRequestWait time.Duration
 
@@ -32,7 +32,7 @@ type AuthorizeHandler struct {
 	authCompleteTemplate *template.Template
 }
 
-func NewAuthorizeHandler(usc port.TokenUsc, validator validators.IDTokenValidator, authRequestUsc port.AuthRequestUsc,
+func NewAuthorizeHandler(usc port.TokenUsc, validator commonport.IDTokenValidator, authRequestUsc port.AuthRequestUsc,
 	tokenGetter port.TokenGetter, tokenSetter port.TokenSetter,
 	authRequestWait time.Duration) *AuthorizeHandler {
 
@@ -185,7 +185,7 @@ func (d *AuthorizeHandler) AuthRequestWait(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	ch := make(chan dto.Token, 1)
+	ch := make(chan commondto.Token, 1)
 	_clientMap.Store(authRequestID, ch)
 
 	defer func(arID string) {
@@ -219,7 +219,7 @@ func (d *AuthorizeHandler) AuthRequestSignal(w http.ResponseWriter, r *http.Requ
 	vars := mux.Vars(r)
 	authRequestID := vars["auth_request_id"]
 
-	token := dto.Token{}
+	token := commondto.Token{}
 	if err := si.DecodeJson(&token, r.Body); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -230,7 +230,7 @@ func (d *AuthorizeHandler) AuthRequestSignal(w http.ResponseWriter, r *http.Requ
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	ch := val.(chan dto.Token)
+	ch := val.(chan commondto.Token)
 	ch <- token
 	close(ch)
 	w.Write([]byte(`{"status":200}`))
@@ -243,7 +243,7 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 
 	tokenIdentifier := d.tokenGetter.GetTokenIdentifier(r)
 	if tokenIdentifier == "" {
-		// return dto.NilToken, errors.New("token identifier is empty")
+		// return commondto.NilToken, errors.New("token identifier is empty")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -300,7 +300,7 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 	d.tokenSetter.SetIDToken(w, idTokenStr)
 	d.tokenSetter.SetTokenSource(w, tokenSource)
 
-	resTokenDto := dto.Token{
+	resTokenDto := commondto.Token{
 		ID:          tokenIdentifier,
 		IDToken:     idTokenStr,
 		TokenSource: tokenSource,

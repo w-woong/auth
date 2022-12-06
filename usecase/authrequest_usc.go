@@ -13,6 +13,7 @@ import (
 	"github.com/w-woong/auth/entity"
 	"github.com/w-woong/auth/port"
 	"github.com/w-woong/common"
+	commondto "github.com/w-woong/common/dto"
 )
 
 type AuthRequest struct {
@@ -102,7 +103,7 @@ func (u *AuthRequest) Remove(ctx context.Context, id string) (int64, error) {
 
 }
 
-func (u *AuthRequest) Signal(ctx context.Context, id string, token dto.Token) error {
+func (u *AuthRequest) Signal(ctx context.Context, id string, token commondto.Token) error {
 	tx, err := u.txBeginner.Begin()
 	if err != nil {
 		return err

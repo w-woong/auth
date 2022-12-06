@@ -19,10 +19,10 @@ import (
 	"github.com/w-woong/auth/port"
 	"github.com/w-woong/auth/usecase"
 	"github.com/w-woong/common"
+	commonadapter "github.com/w-woong/common/adapter"
 	"github.com/w-woong/common/configs"
 	"github.com/w-woong/common/logger"
 	"github.com/w-woong/common/txcom"
-	"github.com/w-woong/common/validators"
 	useradapter "github.com/w-woong/user/adapter"
 	userport "github.com/w-woong/user/port"
 	"golang.org/x/oauth2"
@@ -126,7 +126,7 @@ func main() {
 	authUrl := conf.Client.Oauth2.AuthUrl
 	tokenUrl := conf.Client.Oauth2.TokenUrl
 	openIDConfUrl := conf.Client.Oauth2.OpenIDConfUrl
-	jwksUrl, err := validators.GetJwksUrl(openIDConfUrl)
+	jwksUrl, err := commonadapter.GetJwksUrl(openIDConfUrl)
 	if err != nil {
 		logger.Error(err.Error())
 		return
@@ -190,7 +190,7 @@ func main() {
 	tokenUsc := usecase.NewTokenUsc(tokenTxBeginner, tokenRepo,
 		authStateTxBeginner, authStateRepo,
 		&oauthConfig, userSvc, entity.TokenSource(conf.Client.Oauth2.Token.Source))
-	validator := validators.NewJwksIDTokenValidator(jwksUrl)
+	validator := commonadapter.NewJwksIDTokenValidator(jwksUrl)
 	authRequestUsc := usecase.NewAuthRequest(
 		conf.Client.Oauth2.AuthRequest.ResponseUrl,
 		conf.Client.Oauth2.AuthRequest.AuthUrl,
