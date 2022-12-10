@@ -6,7 +6,7 @@ require (
 	github.com/go-wonk/si v0.2.11
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/w-woong/common v0.0.28
+	github.com/w-woong/common v0.0.30
 	github.com/wonksing/structmapper v0.0.4
 	golang.org/x/oauth2 v0.1.0
 	gorm.io/gorm v1.24.0

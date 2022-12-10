@@ -169,7 +169,9 @@ func main() {
 		userSvc = commonadapter.NewUserHttp(sihttp.DefaultInsecureClient(),
 			// conf.Client.Oauth2.Token.Source,
 			conf.Client.UserHttp.Url,
-			conf.Client.UserHttp.BearerToken, conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
+			conf.Client.UserHttp.BearerToken,
+			conf.Client.Oauth2.Token.TokenSourceKeyName,
+			conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
 	} else {
 		userSvc = commonadapter.NewUserSvcNop()
 	}
