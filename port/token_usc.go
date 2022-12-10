@@ -6,7 +6,6 @@ import (
 
 	"github.com/w-woong/auth/entity"
 	commondto "github.com/w-woong/common/dto"
-	userdto "github.com/w-woong/user/dto"
 	"golang.org/x/oauth2"
 )
 
@@ -37,7 +36,7 @@ type TokenUsc interface {
 	FindOauth2TokenWithIDToken(ctx context.Context, id, idToken string) (*oauth2.Token, error)
 	RemoveToken(ctx context.Context, id string) (int64, error)
 
-	RegisterUser(ctx context.Context, tokenID string, claims commondto.IDTokenClaims) (userdto.User, error)
+	RegisterUser(ctx context.Context, tokenID string, claims commondto.IDTokenClaims) (commondto.User, error)
 
 	Refresh(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error)
 }

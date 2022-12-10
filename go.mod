@@ -6,8 +6,7 @@ require (
 	github.com/go-wonk/si v0.2.11
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/w-woong/common v0.0.26
-	github.com/w-woong/user v0.0.4
+	github.com/w-woong/common v0.0.28
 	github.com/wonksing/structmapper v0.0.4
 	golang.org/x/oauth2 v0.1.0
 	gorm.io/gorm v1.24.0
@@ -48,7 +47,7 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/net v0.1.0 // indirect
-	golang.org/x/sys v0.2.0 // indirect
+	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect

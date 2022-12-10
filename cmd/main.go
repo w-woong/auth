@@ -22,9 +22,8 @@ import (
 	commonadapter "github.com/w-woong/common/adapter"
 	"github.com/w-woong/common/configs"
 	"github.com/w-woong/common/logger"
+	commonport "github.com/w-woong/common/port"
 	"github.com/w-woong/common/txcom"
-	useradapter "github.com/w-woong/user/adapter"
-	userport "github.com/w-woong/user/port"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 )
@@ -165,14 +164,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	var userSvc userport.UserSvc
+	var userSvc commonport.UserSvc
 	if conf.Client.UserHttp.Url != "" {
-		userSvc = useradapter.NewUserHttp(sihttp.DefaultInsecureClient(),
-			conf.Client.Oauth2.Token.Source,
+		userSvc = commonadapter.NewUserHttp(sihttp.DefaultInsecureClient(),
+			// conf.Client.Oauth2.Token.Source,
 			conf.Client.UserHttp.Url,
-			conf.Client.UserHttp.BearerToken)
+			conf.Client.UserHttp.BearerToken, conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
 	} else {
-		userSvc = useradapter.NewUserSvcNop()
+		userSvc = commonadapter.NewUserSvcNop()
 	}
 
 	oauthConfig := oauth2.Config{

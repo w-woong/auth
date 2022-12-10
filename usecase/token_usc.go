@@ -13,8 +13,7 @@ import (
 	"github.com/w-woong/auth/port"
 	"github.com/w-woong/common"
 	commondto "github.com/w-woong/common/dto"
-	userdto "github.com/w-woong/user/dto"
-	userport "github.com/w-woong/user/port"
+	commonport "github.com/w-woong/common/port"
 	"golang.org/x/oauth2"
 )
 
@@ -28,12 +27,12 @@ type TokenUsc struct {
 	config      *oauth2.Config
 	tokenSource entity.TokenSource
 
-	userSvc userport.UserSvc
+	userSvc commonport.UserSvc
 }
 
 func NewTokenUsc(tokenTxBeginner common.TxBeginner, tokenRepo port.TokenRepo,
 	authStateTxBeginner common.TxBeginner, authStateRepo port.AuthStateRepo,
-	config *oauth2.Config, userSvc userport.UserSvc,
+	config *oauth2.Config, userSvc commonport.UserSvc,
 	tokenSource entity.TokenSource) *TokenUsc {
 
 	return &TokenUsc{
@@ -161,28 +160,28 @@ func (u *TokenUsc) RemoveToken(ctx context.Context, id string) (int64, error) {
 	return rowsAffected, tx.Commit()
 }
 
-func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims commondto.IDTokenClaims) (userdto.User, error) {
+func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims commondto.IDTokenClaims) (commondto.User, error) {
 
-	registeredUser, err := u.userSvc.RegisterUser(ctx, userdto.User{
+	registeredUser, err := u.userSvc.RegisterUser(ctx, u.TokenSource(), commondto.User{
 		LoginID:     claims.Subject,
 		LoginType:   "token",
 		LoginSource: u.TokenSource(),
-		Emails: userdto.Emails{
-			userdto.Email{
+		Emails: commondto.Emails{
+			commondto.Email{
 				Email:    claims.Email,
 				Priority: 0,
 			},
 		},
-		Password: userdto.Password{
+		Password: commondto.Password{
 			Value: tokenID,
 		},
-		Personal: userdto.Personal{
+		Personal: commondto.Personal{
 			FirstName: claims.GivenName,
 			LastName:  claims.FamilyName,
 		},
 	})
 	if err != nil {
-		return userdto.NilUser, err
+		return commondto.NilUser, err
 	}
 
 	return registeredUser, nil
