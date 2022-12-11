@@ -24,6 +24,7 @@ import (
 	"github.com/w-woong/common/logger"
 	commonport "github.com/w-woong/common/port"
 	"github.com/w-woong/common/txcom"
+	"github.com/w-woong/common/wrapper"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 )
@@ -172,6 +173,13 @@ func main() {
 			conf.Client.UserHttp.BearerToken,
 			conf.Client.Oauth2.Token.TokenSourceKeyName,
 			conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
+	} else if conf.Client.UserGrpc.Addr != "" {
+		conn, err := wrapper.NewGrpcClient(conf.Client.UserGrpc, false)
+		if err != nil {
+			logger.Error(err.Error())
+			os.Exit(1)
+		}
+		userSvc = commonadapter.NewUserGrpc(conn)
 	} else {
 		userSvc = commonadapter.NewUserSvcNop()
 	}
