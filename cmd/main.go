@@ -199,7 +199,7 @@ func main() {
 	tokenUsc := usecase.NewTokenUsc(tokenTxBeginner, tokenRepo,
 		authStateTxBeginner, authStateRepo,
 		&oauthConfig, userSvc, entity.TokenSource(conf.Client.Oauth2.Token.Source))
-	validator := commonadapter.NewJwksIDTokenValidator(jwksUrl)
+	validator := commonadapter.NewJwksIDTokenValidator(jwksUrl, conf.Client.Oauth2.Token.TokenSourceKeyName, conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
 	authRequestUsc := usecase.NewAuthRequest(
 		conf.Client.Oauth2.AuthRequest.ResponseUrl,
 		conf.Client.Oauth2.AuthRequest.AuthUrl,

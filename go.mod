@@ -3,10 +3,10 @@ module github.com/w-woong/auth
 go 1.18
 
 require (
-	github.com/go-wonk/si v0.2.11
+	github.com/go-wonk/si v0.2.12
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/w-woong/common v0.0.38
+	github.com/w-woong/common v0.0.44
 	github.com/wonksing/structmapper v0.0.4
 	golang.org/x/oauth2 v0.1.0
 	gorm.io/gorm v1.24.0
@@ -56,7 +56,7 @@ require (
 	go.elastic.co/apm/v2 v2.2.0 // indirect
 	go.elastic.co/fastjson v1.1.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/multierr v1.8.0 // indirect
+	go.uber.org/multierr v1.9.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect

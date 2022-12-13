@@ -162,7 +162,7 @@ func (u *TokenUsc) RemoveToken(ctx context.Context, id string) (int64, error) {
 
 func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims commondto.IDTokenClaims) (commondto.User, error) {
 
-	registeredUser, err := u.userSvc.RegisterUser(ctx, u.TokenSource(), commondto.User{
+	registeredUser, err := u.userSvc.RegisterUser(ctx, commondto.User{
 		LoginID:     claims.Subject,
 		LoginType:   "token",
 		LoginSource: u.TokenSource(),
