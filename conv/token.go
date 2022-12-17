@@ -61,7 +61,7 @@ func ToTokenEntityFromOauth2(token *oauth2.Token, id string, tokenSource entity.
 }
 
 func ToTokenOauth2FromEntity(token *entity.Token) (*oauth2.Token, error) {
-	o := oauth2.Token{
+	o := &oauth2.Token{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		TokenType:    token.TokenType,
@@ -70,7 +70,7 @@ func ToTokenOauth2FromEntity(token *entity.Token) (*oauth2.Token, error) {
 
 	extra := make(map[string]interface{})
 	extra["id_token"] = token.IDToken
-	o.WithExtra(extra)
+	o = o.WithExtra(extra)
 
-	return &o, nil
+	return o, nil
 }

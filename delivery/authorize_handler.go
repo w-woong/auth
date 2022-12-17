@@ -250,6 +250,9 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 
 	idTokenStr := d.tokenGetter.GetIDToken(r)
 	_, claims, err := d.validator.Validate(idTokenStr)
+	// if err == nil {
+	// 	err = common.ErrTokenExpired
+	// }
 	if err != nil {
 		log.Println(err)
 		if errors.Is(err, common.ErrTokenExpired) {
