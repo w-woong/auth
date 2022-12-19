@@ -26,6 +26,7 @@ import (
 	"github.com/w-woong/common/logger"
 	commonport "github.com/w-woong/common/port"
 	"github.com/w-woong/common/txcom"
+	"github.com/w-woong/common/utils"
 	"github.com/w-woong/common/wrapper"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
@@ -163,7 +164,7 @@ func main() {
 	authUrl := conf.Client.Oauth2.AuthUrl
 	tokenUrl := conf.Client.Oauth2.TokenUrl
 	openIDConfUrl := conf.Client.Oauth2.OpenIDConfUrl
-	jwksUrl, err := commonadapter.GetJwksUrl(openIDConfUrl)
+	jwksUrl, err := utils.GetJwksUrl(openIDConfUrl)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
@@ -236,11 +237,13 @@ func main() {
 	tokenUsc := usecase.NewTokenUsc(tokenTxBeginner, tokenRepo,
 		authStateTxBeginner, authStateRepo,
 		&oauthConfig, userSvc, entity.TokenSource(conf.Client.Oauth2.Token.Source))
-	validator, err := commonadapter.NewJwksIDTokenValidator(jwksUrl, conf.Client.Oauth2.Token.TokenSourceKeyName, conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
+
+	jwksStore, err := utils.NewJwksCache(jwksUrl)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
+	validator := commonadapter.NewJwksIDTokenValidator(jwksStore, conf.Client.Oauth2.Token.TokenSourceKeyName, conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
 	authRequestUsc := usecase.NewAuthRequest(
 		conf.Client.Oauth2.AuthRequest.ResponseUrl,
 		conf.Client.Oauth2.AuthRequest.AuthUrl,
