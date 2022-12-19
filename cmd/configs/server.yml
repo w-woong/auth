@@ -75,7 +75,6 @@ client:
   #     time: 60
   #     timeout: 1
   #     permit_without_stream: true
-
   #   resolver_scheme: 'user'
   #   resolver_service_name: 'user-service'
   #   default_service_config: >
