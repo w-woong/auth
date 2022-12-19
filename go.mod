@@ -6,8 +6,10 @@ require (
 	github.com/go-wonk/si v0.2.12
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/w-woong/common v0.0.44
+	github.com/w-woong/common v0.0.49
 	github.com/wonksing/structmapper v0.0.4
+	go.elastic.co/apm/module/apmgormv2/v2 v2.2.0
+	go.elastic.co/apm/v2 v2.2.0
 	golang.org/x/oauth2 v0.1.0
 	gorm.io/gorm v1.24.0
 )
@@ -53,7 +55,7 @@ require (
 	github.com/subosito/gotenv v1.4.1 // indirect
 	go.elastic.co/apm/module/apmgrpc/v2 v2.2.0 // indirect
 	go.elastic.co/apm/module/apmhttp/v2 v2.2.0 // indirect
-	go.elastic.co/apm/v2 v2.2.0 // indirect
+	go.elastic.co/apm/module/apmsql/v2 v2.2.0 // indirect
 	go.elastic.co/fastjson v1.1.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect

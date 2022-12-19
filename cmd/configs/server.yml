@@ -26,7 +26,8 @@ server:
     allowed_methods: 'GET,POST,PUT,DELETE,HEAD'
 
   repo:
-    driver: 'pgx'
+    driver: 'map'
+    # driver: 'pgx'
     conn_str: 'host=testpghost user=test password=test123 dbname=woong_auth port=5432 sslmode=disable TimeZone=Asia/Seoul'
     # used when driver is oci8, postgres, mssql...
     max_idle_conns: 25
@@ -68,29 +69,29 @@ client:
   #   url: 'https://192.168.0.92:8080'
   #   bearer_token: 'ab2316584873095f017f6dfa7a9415794f563fcc473eb3fe65b9167e37fd5a4b'
 
-  user_grpc:
-    addr: '192.168.0.92:42001,192.168.0.92:42001'
-    keep_alive:
-      time: 60
-      timeout: 1
-      permit_without_stream: true
+  # user_grpc:
+  #   addr: '192.168.0.92:42001,192.168.0.92:42001'
+  #   keep_alive:
+  #     time: 60
+  #     timeout: 1
+  #     permit_without_stream: true
 
-    resolver_scheme: 'user'
-    resolver_service_name: 'user-service'
-    default_service_config: >
-      {"loadBalancingConfig": [{"round_robin":{}}],
-        "methodConfig": [{
-          "name": [{}],
-          "waitForReady": true,
-          "retryPolicy": {
-            "MaxAttempts": 3,
-            "InitialBackoff": ".01s",
-            "MaxBackoff": ".01s",
-            "BackoffMultiplier": 1.0,
-            "RetryableStatusCodes": [ "UNAVAILABLE" ]
-          }
-        }]
-      }
-    ca_cert_pem: './certs/server.crt'
-    cert_server_name: 'localhost'
-    dial_block: true
+  #   resolver_scheme: 'user'
+  #   resolver_service_name: 'user-service'
+  #   default_service_config: >
+  #     {"loadBalancingConfig": [{"round_robin":{}}],
+  #       "methodConfig": [{
+  #         "name": [{}],
+  #         "waitForReady": true,
+  #         "retryPolicy": {
+  #           "MaxAttempts": 3,
+  #           "InitialBackoff": ".01s",
+  #           "MaxBackoff": ".01s",
+  #           "BackoffMultiplier": 1.0,
+  #           "RetryableStatusCodes": [ "UNAVAILABLE" ]
+  #         }
+  #       }]
+  #     }
+  #   ca_cert_pem: './certs/server.crt'
+  #   cert_server_name: 'localhost'
+  #   dial_block: false

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-wonk/si"
@@ -27,6 +29,11 @@ import (
 	"github.com/w-woong/common/wrapper"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
+
+	// "go.elastic.co/apm/module/apmgorilla/v2"
+	postgresapm "go.elastic.co/apm/module/apmgormv2/v2/driver/postgres" // postgres with gorm
+	// _ "go.elastic.co/apm/module/apmsql/v2/pq" // postgres sql with pq
+	"go.elastic.co/apm/v2"
 )
 
 var (
@@ -69,6 +76,14 @@ func main() {
 	}
 	runtime.GOMAXPROCS(maxProc)
 
+	var err error
+	// apm
+	apmActive, _ := strconv.ParseBool(os.Getenv("ELASTIC_APM_ACTIVE"))
+	if apmActive {
+		tracer := apm.DefaultTracer()
+		defer tracer.Flush(nil)
+	}
+
 	// config
 	conf := common.Config{}
 	if err := configs.ReadConfigInto(configName, &conf); err != nil {
@@ -85,21 +100,43 @@ func main() {
 		conf.Logger.File.MaxAge, conf.Logger.File.Compressed)
 	defer logger.Close()
 
-	// db
-	sqlDB, err := si.OpenSqlDB(conf.Server.Repo.Driver, conf.Server.Repo.ConnStr,
-		conf.Server.Repo.MaxIdleConns, conf.Server.Repo.MaxOpenConns,
-		time.Duration(conf.Server.Repo.ConnMaxLifetimeMinutes)*time.Minute)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer sqlDB.Close()
-
-	// gorm
+	// db, gorm
 	var gormDB *gorm.DB
 	switch conf.Server.Repo.Driver {
 	case "pgx":
-		gormDB, err = sigorm.OpenPostgres(sqlDB)
+		if apmActive {
+			gormDB, err = gorm.Open(postgresapm.Open(conf.Server.Repo.ConnStr),
+				&gorm.Config{Logger: logger.OpenGormLogger(conf.Server.Repo.LogLevel)},
+			)
+			if err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+			db, err := gormDB.DB()
+			if err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+			defer db.Close()
+		} else {
+			// db
+			// var db *sql.DB
+			db, err := si.OpenSqlDB(conf.Server.Repo.Driver, conf.Server.Repo.ConnStr,
+				conf.Server.Repo.MaxIdleConns, conf.Server.Repo.MaxOpenConns, time.Duration(conf.Server.Repo.ConnMaxLifetimeMinutes)*time.Minute)
+			if err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+			defer db.Close()
+
+			gormDB, err = sigorm.OpenPostgresWithConfig(db,
+				&gorm.Config{Logger: logger.OpenGormLogger(conf.Server.Repo.LogLevel)},
+			)
+			if err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+		}
 	case "map":
 	default:
 		logger.Error(conf.Server.Repo.Driver + " is not allowed")
@@ -129,7 +166,7 @@ func main() {
 	jwksUrl, err := commonadapter.GetJwksUrl(openIDConfUrl)
 	if err != nil {
 		logger.Error(err.Error())
-		return
+		os.Exit(1)
 	}
 	// repo
 
@@ -223,15 +260,24 @@ func main() {
 		strings.Split(conf.Server.Http.AllowedMethods, ","),
 	)
 
+	// ticker
+	ticker := time.NewTicker(time.Duration(tickIntervalSec) * time.Second)
+	tickerDone := make(chan bool)
+	common.StartTicker(tickerDone, ticker, func(t time.Time) {
+		logger.Info(fmt.Sprintf("NoOfGR:%v, %v", runtime.NumGoroutine(), t))
+	})
+
+	// signal, wait for it to shutdown http server.
+	common.StartSignalStopper(httpServer, syscall.SIGINT, syscall.SIGTERM)
+
 	// start
 	logger.Info("start listening on " + addr)
 	if err = httpServer.Start(); err != nil {
 		logger.Error(err.Error())
 	}
 
-	// if certPem != "" && certKey != "" {
-	// 	log.Fatal(httpServer.ListenAndServeTLS(certPem, certKey))
-	// } else {
-	// 	log.Fatal(httpServer.ListenAndServe())
-	// }
+	// finish
+	ticker.Stop()
+	tickerDone <- true
+	logger.Info("finished")
 }

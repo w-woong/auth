@@ -115,10 +115,10 @@ func (u *AuthRequest) Signal(ctx context.Context, id string, token commondto.Tok
 		return err
 	}
 
-	_, err = u.authRequest.Delete(ctx, tx, id)
-	if err != nil {
-		return err
-	}
+	// _, err = u.authRequest.Delete(ctx, tx, id)
+	// if err != nil {
+	// 	return err
+	// }
 
 	url := u.replaceByID(authRequest.ResponseUrl, authRequest.ID)
 	header := make(http.Header)
