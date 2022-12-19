@@ -6,7 +6,7 @@ require (
 	github.com/go-wonk/si v0.2.12
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/w-woong/common v0.0.49
+	github.com/w-woong/common v0.0.50
 	github.com/wonksing/structmapper v0.0.4
 	go.elastic.co/apm/module/apmgormv2/v2 v2.2.0
 	go.elastic.co/apm/v2 v2.2.0
@@ -16,6 +16,7 @@ require (
 
 require (
 	github.com/MicahParks/keyfunc v1.7.0 // indirect
+	github.com/allegro/bigcache/v3 v3.1.0 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/elastic/go-licenser v0.4.0 // indirect
 	github.com/elastic/go-sysinfo v1.7.1 // indirect
