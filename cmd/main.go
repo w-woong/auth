@@ -49,8 +49,9 @@ var (
 	configName       string
 	maxProc          int
 
-	usePprof  = false
-	pprofAddr = ":56060"
+	usePprof    = false
+	pprofAddr   = ":56060"
+	autoMigrate = false
 )
 
 func init() {
@@ -66,6 +67,7 @@ func init() {
 
 	flag.BoolVar(&usePprof, "pprof", false, "use pprof")
 	flag.StringVar(&pprofAddr, "pprof_addr", ":56060", "pprof listen address")
+	flag.BoolVar(&autoMigrate, "autoMigrate", false, "auto migrate")
 
 	flag.Parse()
 }
@@ -189,7 +191,6 @@ func main() {
 		authRequestTxBeginner = txcom.NewGormTxBeginner(gormDB)
 		authRequestRepo = adapter.NewAuthRequestPg(gormDB)
 
-		gormDB.AutoMigrate(&entity.Token{}, &entity.AuthState{}, &entity.AuthRequest{})
 	case "map":
 		tokenTxBeginner = txcom.NewLockTxBeginner()
 		tokenRepo = adapter.NewMapToken()
@@ -203,6 +204,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	if autoMigrate {
+		gormDB.AutoMigrate(&entity.Token{}, &entity.AuthState{}, &entity.AuthRequest{})
+	}
 	var userSvc commonport.UserSvc
 	if conf.Client.UserHttp.Url != "" {
 		userSvc = commonadapter.NewUserHttp(sihttp.DefaultInsecureClient(),
