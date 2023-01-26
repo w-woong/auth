@@ -7,18 +7,17 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/w-woong/auth/delivery"
 	"github.com/w-woong/auth/port"
-	commonport "github.com/w-woong/common/port"
 )
 
 // func init() {
 // 	rand.Seed(time.Now().Unix())
 // }
-func AuthorizeHandlerRoute(router *mux.Router, usc port.TokenUsc, validator commonport.IDTokenValidator,
+func AuthorizeHandlerRoute(router *mux.Router, usc port.TokenUsc, authStateUsc port.AuthStateUsc,
 	authRequestUsc port.AuthRequestUsc,
 	tokenGetter port.TokenGetter, tokenSetter port.TokenSetter,
 	authRequestWait time.Duration) *delivery.AuthorizeHandler {
 
-	handler := delivery.NewAuthorizeHandler(usc, validator, authRequestUsc, tokenGetter, tokenSetter, authRequestWait)
+	handler := delivery.NewAuthorizeHandler(usc, authStateUsc, authRequestUsc, tokenGetter, tokenSetter, authRequestWait)
 
 	router.HandleFunc("/v1/auth/authorize/"+usc.TokenSource()+"/{auth_request_id}",
 		handler.AuthorizeWithAuthRequest).Methods(http.MethodGet)

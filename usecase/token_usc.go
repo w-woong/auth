@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/w-woong/auth/authutil"
 	"github.com/w-woong/auth/conv"
@@ -24,32 +25,28 @@ type TokenUsc struct {
 	tokenTxBeginner common.TxBeginner
 	tokenRepo       port.TokenRepo
 
-	authStateTxBeginner common.TxBeginner
-	authStateRepo       port.AuthStateRepo
-
-	config      *oauth2.Config
 	tokenSource entity.TokenSource
+	openIDConf  map[string]interface{}
+	config      *oauth2.Config
+	validator   commonport.IDTokenValidator
 
 	userSvc commonport.UserSvc
-
-	openIDConf map[string]interface{}
 }
 
 func NewTokenUsc(tokenTxBeginner common.TxBeginner, tokenRepo port.TokenRepo,
-	authStateTxBeginner common.TxBeginner, authStateRepo port.AuthStateRepo,
-	config *oauth2.Config, userSvc commonport.UserSvc,
-	tokenSource entity.TokenSource, openIDConf map[string]interface{}) *TokenUsc {
+	tokenSource entity.TokenSource, openIDConf map[string]interface{}, config *oauth2.Config,
+	validator commonport.IDTokenValidator, userSvc commonport.UserSvc,
+) *TokenUsc {
 
 	return &TokenUsc{
-		tokenTxBeginner:     tokenTxBeginner,
-		tokenRepo:           tokenRepo,
-		authStateTxBeginner: authStateTxBeginner,
-		authStateRepo:       authStateRepo,
-		config:              config,
+		tokenTxBeginner: tokenTxBeginner,
+		tokenRepo:       tokenRepo,
+		config:          config,
 
 		userSvc:     userSvc,
 		tokenSource: tokenSource,
 		openIDConf:  openIDConf,
+		validator:   validator,
 	}
 }
 
@@ -57,42 +54,21 @@ func (u TokenUsc) TokenSource() string {
 	return string(u.tokenSource)
 }
 
-func (u *TokenUsc) RetrieveAuthUrl(ctx context.Context, authRequestID string) (string, error) {
-	tx, err := u.authStateTxBeginner.Begin()
-	if err != nil {
-		return "", err
-	}
-	defer tx.Rollback()
-
-	state := strings.ReplaceAll(uuid.New().String(), "-", "")
-	codeVerifier := authutil.GenerateCodeVerifier(43)
-
-	_, err = u.authStateRepo.Create(ctx, tx, entity.AuthState{
-		State:         state,
-		CodeVerifier:  codeVerifier,
-		AuthRequestID: authRequestID,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	if err = tx.Commit(); err != nil {
-		return "", err
-	}
-
+func (u *TokenUsc) AuthorizeCode(w http.ResponseWriter, r *http.Request, state, codeVerifier string) error {
 	url := u.config.AuthCodeURL(state,
 		oauth2.SetAuthURLParam("code_challenge", authutil.GenerateCodeChallenge(codeVerifier)),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("access_type", "offline"),
 		oauth2.SetAuthURLParam("prompt", "consent"))
 
-	return url, nil
+	http.Redirect(w, r, url, http.StatusFound)
+	return nil
 }
 
-func (u *TokenUsc) Exchange(r *http.Request, authState entity.AuthState) (*oauth2.Token, error) {
+func (u *TokenUsc) Exchange(r *http.Request, codeVerifier string) (*oauth2.Token, error) {
 
 	var opts []oauth2.AuthCodeOption
-	opts = append(opts, oauth2.SetAuthURLParam("code_verifier", authState.CodeVerifier))
+	opts = append(opts, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 
 	token, err := u.config.Exchange(context.Background(), r.URL.Query().Get("code"), opts...)
 	if err != nil {
@@ -104,6 +80,10 @@ func (u *TokenUsc) Exchange(r *http.Request, authState entity.AuthState) (*oauth
 	}
 
 	return token, nil
+}
+
+func (u *TokenUsc) ValidateIDToken(ctx context.Context, idToken string) (*jwt.Token, *commondto.IDTokenClaims, error) {
+	return u.validator.Validate(idToken)
 }
 
 func (u *TokenUsc) SaveToken(ctx context.Context, w http.ResponseWriter, token *oauth2.Token) (commondto.Token, error) {
@@ -138,7 +118,7 @@ func (u *TokenUsc) SaveToken(ctx context.Context, w http.ResponseWriter, token *
 	return tokenForClient, nil
 }
 
-func (u *TokenUsc) FindOauth2TokenWithIDToken(ctx context.Context, id, idToken string) (*oauth2.Token, error) {
+func (u *TokenUsc) FindWithIDToken(ctx context.Context, id, idToken string) (*oauth2.Token, error) {
 
 	token, err := u.tokenRepo.ReadNoTx(ctx, id)
 	if err != nil {
@@ -193,32 +173,9 @@ func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims comm
 	return registeredUser, nil
 }
 
-func (u *TokenUsc) ValidateState(w http.ResponseWriter, r *http.Request) (entity.AuthState, error) {
-	ctx := r.Context()
-	tx, err := u.authStateTxBeginner.Begin()
-	if err != nil {
-		return entity.NilAuthState, err
-	}
-	defer tx.Rollback()
-
-	receivedState := r.URL.Query().Get("state")
-
-	authState, err := u.authStateRepo.ReadByState(ctx, tx, receivedState)
-	if err != nil {
-		return entity.NilAuthState, err
-	}
-	u.authStateRepo.DeleteByState(ctx, tx, receivedState)
-
-	if len(authState.State) > 0 && authState.State != receivedState {
-		return entity.NilAuthState, errors.New("invalid state")
-	}
-	return authState, tx.Commit()
-}
-
 func (u *TokenUsc) Refresh(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error) {
-	return u.config.TokenSource(context.Background(), token).Token()
+	return u.config.TokenSource(ctx, token).Token()
 	// refreshed := newOauthToken.AccessToken != oauthToken.AccessToken || newOauthToken.RefreshToken != oauthToken.RefreshToken
-
 }
 
 func (u *TokenUsc) Revoke(ctx context.Context, token *oauth2.Token) error {

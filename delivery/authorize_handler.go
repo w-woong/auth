@@ -17,7 +17,6 @@ import (
 	"github.com/w-woong/common"
 	commondto "github.com/w-woong/common/dto"
 	"github.com/w-woong/common/logger"
-	commonport "github.com/w-woong/common/port"
 )
 
 var (
@@ -30,7 +29,7 @@ func init() {
 
 type AuthorizeHandler struct {
 	usc             port.TokenUsc
-	validator       commonport.IDTokenValidator
+	authStateUsc    port.AuthStateUsc
 	authRequestUsc  port.AuthRequestUsc
 	authRequestWait time.Duration
 
@@ -40,13 +39,13 @@ type AuthorizeHandler struct {
 	authCompleteTemplate *template.Template
 }
 
-func NewAuthorizeHandler(usc port.TokenUsc, validator commonport.IDTokenValidator, authRequestUsc port.AuthRequestUsc,
+func NewAuthorizeHandler(usc port.TokenUsc, authStateUsc port.AuthStateUsc, authRequestUsc port.AuthRequestUsc,
 	tokenGetter port.TokenGetter, tokenSetter port.TokenSetter,
 	authRequestWait time.Duration) *AuthorizeHandler {
 
 	return &AuthorizeHandler{
 		usc:             usc,
-		validator:       validator,
+		authStateUsc:    authStateUsc,
 		authRequestUsc:  authRequestUsc,
 		authRequestWait: authRequestWait,
 
@@ -80,14 +79,19 @@ func (d *AuthorizeHandler) AuthorizeWithAuthRequest(w http.ResponseWriter, r *ht
 		return
 	}
 
-	url, err := d.usc.RetrieveAuthUrl(ctx, authRequestID)
+	authState, err := d.authStateUsc.Create(ctx, authRequestID)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		logger.Error(err.Error())
+		return
+	}
+
+	err = d.usc.AuthorizeCode(w, r, authState.State, authState.CodeVerifier)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		logger.Error(err.Error())
 		return
 	}
-
-	http.Redirect(w, r, url, http.StatusFound)
 }
 
 // CallbackWithAuthRequest is the url redirected from authorization server(like google, apple, kakao..)
@@ -99,14 +103,14 @@ func (d *AuthorizeHandler) CallbackWithAuthRequest(w http.ResponseWriter, r *htt
 
 	setNoCache(w)
 	ctx := r.Context()
-	authState, err := d.usc.ValidateState(w, r)
+	authState, err := d.authStateUsc.Verify(w, r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		logger.Error(err.Error())
 		return
 	}
 
-	token, err := d.usc.Exchange(r, authState)
+	token, err := d.usc.Exchange(r, authState.CodeVerifier)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		logger.Error(err.Error())
@@ -120,7 +124,7 @@ func (d *AuthorizeHandler) CallbackWithAuthRequest(w http.ResponseWriter, r *htt
 		return
 	}
 
-	_, claims, err := d.validator.Validate(tokenDto.IDToken)
+	_, claims, err := d.usc.ValidateIDToken(ctx, tokenDto.IDToken)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		logger.Error(err.Error())
@@ -276,14 +280,14 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 	}
 
 	idTokenStr := d.tokenGetter.GetIDToken(r)
-	_, claims, err := d.validator.Validate(idTokenStr)
+	_, claims, err := d.usc.ValidateIDToken(ctx, idTokenStr)
 	// if err == nil {
 	// 	err = common.ErrTokenExpired
 	// }
 	if err != nil {
 		logger.Error(err.Error())
 		if errors.Is(err, common.ErrTokenExpired) {
-			foundOauth2Token, err := d.usc.FindOauth2TokenWithIDToken(ctx, tokenIdentifier, idTokenStr)
+			foundOauth2Token, err := d.usc.FindWithIDToken(ctx, tokenIdentifier, idTokenStr)
 			if err != nil {
 				logger.Error(err.Error())
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

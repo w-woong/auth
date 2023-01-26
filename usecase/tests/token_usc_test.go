@@ -8,6 +8,7 @@ import (
 
 	"github.com/w-woong/auth/entity"
 	"github.com/w-woong/auth/usecase"
+	commonadapter "github.com/w-woong/common/adapter"
 	"github.com/w-woong/common/utils"
 	"golang.org/x/oauth2"
 )
@@ -27,9 +28,15 @@ func Test_tokenUsc_Revoke(t *testing.T) {
 		},
 	}
 	openIDConf, _ := utils.GetOpenIDConfig("https://accounts.google.com/.well-known/openid-configuration")
+	jwksUrl, _ := utils.GetJwksUrl("https://accounts.google.com/.well-known/openid-configuration")
+	jwksStore, _ := utils.NewJwksCache(jwksUrl)
+
+	validator := commonadapter.NewJwksIDTokenValidator(jwksStore,
+		"token_source", "tid", "id_token")
+
 	tokenUsc := usecase.NewTokenUsc(nil, nil,
-		nil, nil,
-		&oauthConfig, nil, entity.TokenSource("google"), openIDConf)
+		entity.TokenSource("google"), openIDConf, &oauthConfig,
+		validator, nil)
 
 	o := &oauth2.Token{
 		AccessToken:  "",
@@ -60,9 +67,14 @@ func Test_tokenUsc_Refresh(t *testing.T) {
 	}
 
 	openIDConf, _ := utils.GetOpenIDConfig("https://accounts.google.com/.well-known/openid-configuration")
+	jwksUrl, _ := utils.GetJwksUrl("https://accounts.google.com/.well-known/openid-configuration")
+	jwksStore, _ := utils.NewJwksCache(jwksUrl)
+
+	validator := commonadapter.NewJwksIDTokenValidator(jwksStore,
+		"token_source", "tid", "id_token")
 	tokenUsc := usecase.NewTokenUsc(nil, nil,
-		nil, nil,
-		&oauthConfig, nil, entity.TokenSource("google"), openIDConf)
+		entity.TokenSource("google"), openIDConf, &oauthConfig,
+		validator, nil)
 
 	o := &oauth2.Token{
 		AccessToken:  "",
@@ -98,9 +110,14 @@ func Test_tokenUsc_Userinfo(t *testing.T) {
 	}
 
 	openIDConf, _ := utils.GetOpenIDConfig("https://accounts.google.com/.well-known/openid-configuration")
+	jwksUrl, _ := utils.GetJwksUrl("https://accounts.google.com/.well-known/openid-configuration")
+	jwksStore, _ := utils.NewJwksCache(jwksUrl)
+
+	validator := commonadapter.NewJwksIDTokenValidator(jwksStore,
+		"token_source", "tid", "id_token")
 	tokenUsc := usecase.NewTokenUsc(nil, nil,
-		nil, nil,
-		&oauthConfig, nil, entity.TokenSource("google"), openIDConf)
+		entity.TokenSource("google"), openIDConf, &oauthConfig,
+		validator, nil)
 
 	o := &oauth2.Token{
 		AccessToken:  "",
