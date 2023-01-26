@@ -38,7 +38,7 @@ client:
   oauth2:
     # google, woong, apple, kakao, naver
     token:
-      source: 'kakao'
+      source: 'google'
       id_key_name: 'tid'
       id_token_key_name: 'id_token'
       token_source_key_name: 'token_source'
@@ -47,9 +47,11 @@ client:
     redirect_url: 'https://localhost:5558/v1/auth/callback/{token_source}'
     scopes:
       - 'openid'
-    auth_url: 'https://kauth.kakao.com/oauth/authorize'
-    token_url: 'https://kauth.kakao.com/oauth/token'
-    openid_conf_url: 'https://kauth.kakao.com/.well-known/openid-configuration'
+      - 'https://www.googleapis.com/auth/userinfo.email'
+      - 'https://www.googleapis.com/auth/userinfo.profile'
+    auth_url: 'https://accounts.google.com/o/oauth2/auth'
+    token_url: 'https://oauth2.googleapis.com/token'
+    openid_conf_url: 'https://accounts.google.com/.well-known/openid-configuration'
 
     authrequest:
       # direct address

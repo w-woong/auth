@@ -1,3 +1,10 @@
+# Auth
+
+## Authorization process
+1. Call GET method on `/v1/auth/request/{token_source}`
+2. Call GET method on `/v1/auth/request/{token_source}/{auth_request_id}` asynchronously
+3. Call GET method on `/v1/auth/authorize/{token_source}/{auth_request_id}`
+
 
 ```
 curl --insecure -H "Content-Type: application/json; charset=utf-8" \

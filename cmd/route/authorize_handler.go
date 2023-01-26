@@ -30,22 +30,5 @@ func AuthorizeHandlerRoute(router *mux.Router, usc port.TokenUsc, validator comm
 
 	router.HandleFunc("/v1/auth/validate/"+usc.TokenSource(), handler.ValidateIDToken).Methods(http.MethodGet)
 
-	// router.HandleFunc("/test/auth/validate/google", func(w http.ResponseWriter, r *http.Request) {
-	// 	if rand.Int31n(30)%30 == 0 {
-	// 		w.WriteHeader(401)
-	// 		w.Write([]byte(`{"status":401}`))
-	// 		return
-	// 	}
-	// 	w.Write([]byte(`{"status":200}`))
-	// })
-
-	// router.HandleFunc("/test/resource", func(w http.ResponseWriter, r *http.Request) {
-	// 	if rand.Int31n(3)%2 == 0 {
-	// 		w.WriteHeader(401)
-	// 		w.Write([]byte(`{"status":1000}`))
-	// 		return
-	// 	}
-	// 	w.Write([]byte(`{"status":200}`))
-	// })
 	return handler
 }
