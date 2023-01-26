@@ -6,6 +6,9 @@
 3. Call GET method on `/v1/auth/authorize/{token_source}/{auth_request_id}`
 
 
+## References
+[google oidc](https://developers.google.com/identity/openid-connect/openid-connect?hl=ko)
+
 ```
 curl --insecure -H "Content-Type: application/json; charset=utf-8" \
 -X POST \

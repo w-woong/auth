@@ -3,7 +3,10 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -28,12 +31,14 @@ type TokenUsc struct {
 	tokenSource entity.TokenSource
 
 	userSvc commonport.UserSvc
+
+	openIDConf map[string]interface{}
 }
 
 func NewTokenUsc(tokenTxBeginner common.TxBeginner, tokenRepo port.TokenRepo,
 	authStateTxBeginner common.TxBeginner, authStateRepo port.AuthStateRepo,
 	config *oauth2.Config, userSvc commonport.UserSvc,
-	tokenSource entity.TokenSource) *TokenUsc {
+	tokenSource entity.TokenSource, openIDConf map[string]interface{}) *TokenUsc {
 
 	return &TokenUsc{
 		tokenTxBeginner:     tokenTxBeginner,
@@ -44,6 +49,7 @@ func NewTokenUsc(tokenTxBeginner common.TxBeginner, tokenRepo port.TokenRepo,
 
 		userSvc:     userSvc,
 		tokenSource: tokenSource,
+		openIDConf:  openIDConf,
 	}
 }
 
@@ -213,4 +219,45 @@ func (u *TokenUsc) Refresh(ctx context.Context, token *oauth2.Token) (*oauth2.To
 	return u.config.TokenSource(context.Background(), token).Token()
 	// refreshed := newOauthToken.AccessToken != oauthToken.AccessToken || newOauthToken.RefreshToken != oauthToken.RefreshToken
 
+}
+
+func (u *TokenUsc) Revoke(ctx context.Context, token *oauth2.Token) error {
+	revokeEndpoint, ok := u.openIDConf["revocation_endpoint"]
+	if !ok {
+		return nil
+	}
+
+	reqBody := url.Values{}
+	reqBody.Set("token", token.RefreshToken)
+	resp, err := u.config.Client(ctx, token).Post(revokeEndpoint.(string), "application/x-www-form-urlencoded", strings.NewReader(reqBody.Encode()))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
+}
+
+func (u *TokenUsc) Userinfo(ctx context.Context, token *oauth2.Token) error {
+	userinfoEndpoint, ok := u.openIDConf["revocation_endpoint"]
+	if !ok {
+		return nil
+	}
+	resp, err := u.config.Client(ctx, token).Get(userinfoEndpoint.(string))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
 }

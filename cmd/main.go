@@ -62,7 +62,7 @@ func init() {
 	flag.StringVar(&certPem, "pem", "./certs/cert.pem", "server pem")
 	flag.IntVar(&readTimeout, "readTimeout", 30, "read timeout")
 	flag.IntVar(&writeTimeout, "writeTimeout", 30, "write timeout")
-	flag.StringVar(&configName, "config", "./configs/server.yml", "config file name")
+	flag.StringVar(&configName, "config", "./configs/server-google.yml", "config file name")
 	flag.IntVar(&maxProc, "mp", runtime.NumCPU(), "GOMAXPROCS")
 
 	flag.BoolVar(&usePprof, "pprof", false, "use pprof")
@@ -165,8 +165,12 @@ func main() {
 	scopes := conf.Client.Oauth2.Scopes
 	authUrl := conf.Client.Oauth2.AuthUrl
 	tokenUrl := conf.Client.Oauth2.TokenUrl
-	openIDConfUrl := conf.Client.Oauth2.OpenIDConfUrl
-	jwksUrl, err := utils.GetJwksUrl(openIDConfUrl)
+	openIDConf, err := utils.GetOpenIDConfig(conf.Client.Oauth2.OpenIDConfUrl)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+	jwksUrl, err := utils.GetJwksUrl(conf.Client.Oauth2.OpenIDConfUrl)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
@@ -240,7 +244,7 @@ func main() {
 	}
 	tokenUsc := usecase.NewTokenUsc(tokenTxBeginner, tokenRepo,
 		authStateTxBeginner, authStateRepo,
-		&oauthConfig, userSvc, entity.TokenSource(conf.Client.Oauth2.Token.Source))
+		&oauthConfig, userSvc, entity.TokenSource(conf.Client.Oauth2.Token.Source), openIDConf)
 
 	jwksStore, err := utils.NewJwksCache(jwksUrl)
 	if err != nil {
