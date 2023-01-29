@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/w-woong/auth/entity"
 	"github.com/w-woong/common"
@@ -13,4 +14,9 @@ type AuthStateRepo interface {
 	ReadByState(ctx context.Context, tx common.TxController, state string) (entity.AuthState, error)
 	// Delete(id string) (int64, error)
 	DeleteByState(ctx context.Context, tx common.TxController, state string) (int64, error)
+}
+
+type AuthStateUsc interface {
+	Create(ctx context.Context, authRequestID string) (entity.AuthState, error)
+	Verify(w http.ResponseWriter, r *http.Request) (entity.AuthState, error)
 }

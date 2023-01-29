@@ -3,27 +3,33 @@ package delivery
 import (
 	"errors"
 	"html/template"
-	"io"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/go-wonk/si"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/w-woong/auth"
-	"github.com/w-woong/auth/dto"
 	"github.com/w-woong/auth/port"
 	"github.com/w-woong/common"
-	"github.com/w-woong/common/validators"
+	commondto "github.com/w-woong/common/dto"
+	"github.com/w-woong/common/logger"
 )
+
+var (
+	dump bool
+)
+
+func init() {
+	dump, _ = strconv.ParseBool(os.Getenv("DUMP"))
+}
 
 type AuthorizeHandler struct {
 	usc             port.TokenUsc
-	validator       validators.IDTokenValidator
+	authStateUsc    port.AuthStateUsc
 	authRequestUsc  port.AuthRequestUsc
 	authRequestWait time.Duration
 
@@ -33,13 +39,13 @@ type AuthorizeHandler struct {
 	authCompleteTemplate *template.Template
 }
 
-func NewAuthorizeHandler(usc port.TokenUsc, validator validators.IDTokenValidator, authRequestUsc port.AuthRequestUsc,
+func NewAuthorizeHandler(usc port.TokenUsc, authStateUsc port.AuthStateUsc, authRequestUsc port.AuthRequestUsc,
 	tokenGetter port.TokenGetter, tokenSetter port.TokenSetter,
 	authRequestWait time.Duration) *AuthorizeHandler {
 
 	return &AuthorizeHandler{
 		usc:             usc,
-		validator:       validator,
+		authStateUsc:    authStateUsc,
 		authRequestUsc:  authRequestUsc,
 		authRequestWait: authRequestWait,
 
@@ -57,7 +63,10 @@ func setNoCache(w http.ResponseWriter) {
 
 // AuthorizeWithAuthRequest is the start of authorization process to the authorization servers(like google, apple, kakao...)
 func (d *AuthorizeHandler) AuthorizeWithAuthRequest(w http.ResponseWriter, r *http.Request) {
-	_ = dumpRequest(os.Stdout, "AuthorizeWithAuthRequest", r) // Ignore the error
+	if dump {
+		dumpRequest(r) // Ignore the error
+	}
+
 	setNoCache(w)
 	ctx := r.Context()
 	vars := mux.Vars(r)
@@ -66,79 +75,91 @@ func (d *AuthorizeHandler) AuthorizeWithAuthRequest(w http.ResponseWriter, r *ht
 	_, err := d.authRequestUsc.Find(ctx, authRequestID)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
 
-	url, err := d.usc.RetrieveAuthUrl(ctx, authRequestID)
+	authState, err := d.authStateUsc.Create(ctx, authRequestID)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		logger.Error(err.Error())
+		return
+	}
+
+	err = d.usc.AuthorizeCode(w, r, authState.State, authState.CodeVerifier)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
-
-	log.Println(url)
-
-	http.Redirect(w, r, url, http.StatusFound)
 }
 
 // CallbackWithAuthRequest is the url redirected from authorization server(like google, apple, kakao..)
 // when authorization process is completed.
 func (d *AuthorizeHandler) CallbackWithAuthRequest(w http.ResponseWriter, r *http.Request) {
-	_ = dumpRequest(os.Stdout, "CallbackWithAuthRequest", r) // Ignore the error
+	if dump {
+		dumpRequest(r) // Ignore the error
+	}
 
 	setNoCache(w)
 	ctx := r.Context()
-	authState, err := d.usc.ValidateState(w, r)
+	authState, err := d.authStateUsc.Verify(w, r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
 
-	token, err := d.usc.Exchange(r, authState)
+	token, err := d.usc.Exchange(r, authState.CodeVerifier)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
 
 	tokenDto, err := d.usc.SaveToken(ctx, w, token)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
 
-	_, claims, err := d.validator.Validate(tokenDto.IDToken)
+	_, claims, err := d.usc.ValidateIDToken(ctx, tokenDto.IDToken)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
 
 	registeredUser, err := d.usc.RegisterUser(ctx, tokenDto.ID, *claims)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
-	log.Println(registeredUser.String())
+	logger.Debug(registeredUser.String())
 
 	d.tokenSetter.SetTokenIdentifier(w, tokenDto.ID)
 	d.tokenSetter.SetIDToken(w, tokenDto.IDToken)
+	d.tokenSetter.SetTokenSource(w, tokenDto.TokenSource)
 
 	// TODO: respond with static page that leads to the app or web page
 	// if err = si.EncodeJson(w, tokenDto.HideSensitive()); err != nil {
-	// 	log.Println(err)
+	// 	logger.Error(err.Error())
 	// }
 	if err = d.authCompleteTemplate.Execute(w, nil); err != nil {
-		log.Println(err)
+		logger.Error(err.Error())
 	}
 
-	err = d.authRequestUsc.Signal(r.Context(), authState.AuthRequestID, tokenDto)
+	defer func() {
+		_, err := d.authRequestUsc.Remove(ctx, authState.AuthRequestID)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+	}()
+	err = d.authRequestUsc.Signal(ctx, authState.AuthRequestID, tokenDto)
 	if err != nil {
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
 }
@@ -146,7 +167,9 @@ func (d *AuthorizeHandler) CallbackWithAuthRequest(w http.ResponseWriter, r *htt
 // AuthRequest starts oauth2, the server creates an authRequestID. The server saves the authRequestID
 // and pass it to the user.
 func (d *AuthorizeHandler) AuthRequest(w http.ResponseWriter, r *http.Request) {
-	_ = dumpRequest(os.Stdout, "AuthRequest", r) // Ignore the error
+	if dump {
+		dumpRequest(r) // Ignore the error
+	}
 	ctx := r.Context()
 
 	setNoCache(w)
@@ -154,7 +177,7 @@ func (d *AuthorizeHandler) AuthRequest(w http.ResponseWriter, r *http.Request) {
 	authRequest, err := d.authRequestUsc.Save(ctx, authRequestID)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
 
@@ -165,14 +188,16 @@ func (d *AuthorizeHandler) AuthRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := res.EncodeTo(w); err != nil {
-		log.Println(err)
+		logger.Error(err.Error())
 	}
 
 }
 
 // AuthRequestWait
 func (d *AuthorizeHandler) AuthRequestWait(w http.ResponseWriter, r *http.Request) {
-	_ = dumpRequest(os.Stdout, "AuthRequestWait", r) // Ignore the error
+	if dump {
+		dumpRequest(r) // Ignore the error
+	}
 	setNoCache(w)
 	ctx := r.Context()
 	vars := mux.Vars(r)
@@ -181,11 +206,11 @@ func (d *AuthorizeHandler) AuthRequestWait(w http.ResponseWriter, r *http.Reques
 	_, err := d.authRequestUsc.Find(ctx, authRequestID)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
+		logger.Error(err.Error())
 		return
 	}
 
-	ch := make(chan dto.Token, 1)
+	ch := make(chan commondto.Token, 1)
 	_clientMap.Store(authRequestID, ch)
 
 	defer func(arID string) {
@@ -199,12 +224,12 @@ func (d *AuthorizeHandler) AuthRequestWait(w http.ResponseWriter, r *http.Reques
 	select {
 	case token := <-ch:
 		if err := si.EncodeJson(w, &token); err != nil {
-			log.Println(err)
+			logger.Error(err.Error())
 			return
 		}
 	case <-ticker.C:
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Println("tick expired")
+		logger.Error("tick expired")
 		return
 	}
 }
@@ -214,12 +239,15 @@ var (
 )
 
 func (d *AuthorizeHandler) AuthRequestSignal(w http.ResponseWriter, r *http.Request) {
-	_ = dumpRequest(os.Stdout, "AuthRequestSignal", r) // Ignore the error
+	if dump {
+		dumpRequest(r) // Ignore the error
+	}
+
 	setNoCache(w)
 	vars := mux.Vars(r)
 	authRequestID := vars["auth_request_id"]
 
-	token := dto.Token{}
+	token := commondto.Token{}
 	if err := si.DecodeJson(&token, r.Body); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -230,57 +258,65 @@ func (d *AuthorizeHandler) AuthRequestSignal(w http.ResponseWriter, r *http.Requ
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	ch := val.(chan dto.Token)
+	ch := val.(chan commondto.Token)
 	ch <- token
 	close(ch)
 	w.Write([]byte(`{"status":200}`))
 }
 
 func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Request) {
-	_ = dumpRequest(os.Stdout, "ValidateIDToken", r) // Ignore the error
+	if dump {
+		dumpRequest(r) // Ignore the error
+	}
+
 	setNoCache(w)
 	ctx := r.Context()
 
 	tokenIdentifier := d.tokenGetter.GetTokenIdentifier(r)
 	if tokenIdentifier == "" {
-		// return dto.NilToken, errors.New("token identifier is empty")
+		// return commondto.NilToken, errors.New("token identifier is empty")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	idTokenStr := d.tokenGetter.GetIDToken(r)
-	_, claims, err := d.validator.Validate(idTokenStr)
+	_, claims, err := d.usc.ValidateIDToken(ctx, idTokenStr)
+	// if err == nil {
+	// 	err = common.ErrTokenExpired
+	// }
 	if err != nil {
-		log.Println(err)
-		if errors.Is(err, auth.ErrTokenExpired) {
-			foundOauth2Token, err := d.usc.FindOauth2TokenWithIDToken(ctx, tokenIdentifier, idTokenStr)
+		logger.Error(err.Error())
+		if errors.Is(err, common.ErrTokenExpired) {
+			foundOauth2Token, err := d.usc.FindWithIDToken(ctx, tokenIdentifier, idTokenStr)
 			if err != nil {
-				log.Println(err)
+				logger.Error(err.Error())
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 			d.usc.RemoveToken(ctx, tokenIdentifier)
 			d.tokenSetter.SetTokenIdentifier(w, "")
 			d.tokenSetter.SetIDToken(w, "")
+			d.tokenSetter.SetTokenSource(w, "")
 
 			refreshedOauth2Token, err := d.usc.Refresh(ctx, foundOauth2Token)
 			if err != nil {
-				log.Println(err)
+				logger.Error(err.Error())
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 
 			refreshedTokenDto, err := d.usc.SaveToken(ctx, w, refreshedOauth2Token)
 			if err != nil {
-				log.Println(err)
+				logger.Error(err.Error())
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 
 			d.tokenSetter.SetTokenIdentifier(w, refreshedTokenDto.ID)
 			d.tokenSetter.SetIDToken(w, refreshedTokenDto.IDToken)
+			d.tokenSetter.SetTokenSource(w, refreshedTokenDto.TokenSource)
 			if err := si.EncodeJson(w, refreshedTokenDto.HideSensitive()); err != nil {
-				log.Println(err)
+				logger.Error(err.Error())
 			}
 			return
 		}
@@ -288,32 +324,34 @@ func (d *AuthorizeHandler) ValidateIDToken(w http.ResponseWriter, r *http.Reques
 		d.usc.RemoveToken(ctx, tokenIdentifier)
 		d.tokenSetter.SetTokenIdentifier(w, "")
 		d.tokenSetter.SetIDToken(w, "")
+		d.tokenSetter.SetTokenSource(w, "")
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
+	tokenSource := d.tokenGetter.GetTokenSource(r)
 	d.tokenSetter.SetTokenIdentifier(w, tokenIdentifier)
 	d.tokenSetter.SetIDToken(w, idTokenStr)
+	d.tokenSetter.SetTokenSource(w, tokenSource)
 
-	resTokenDto := dto.Token{
-		ID:      tokenIdentifier,
-		IDToken: idTokenStr,
-		Expiry:  claims.ExpiresAt.Unix(),
+	resTokenDto := commondto.Token{
+		ID:          tokenIdentifier,
+		IDToken:     idTokenStr,
+		TokenSource: tokenSource,
+		Expiry:      claims.ExpiresAt.Unix(),
 	}
 
 	if err := si.EncodeJson(w, resTokenDto.HideSensitive()); err != nil {
-		log.Println(err)
+		logger.Error(err.Error())
 	}
 
 }
 
-func dumpRequest(writer io.Writer, header string, r *http.Request) error {
+func dumpRequest(r *http.Request) error {
 	data, err := httputil.DumpRequest(r, true)
 	if err != nil {
 		return err
 	}
-	writer.Write([]byte("\n" + header + ": \n"))
-	writer.Write(data)
+	logger.Debug(string(data), logger.UrlField(r.URL.String()))
 	return nil
 }

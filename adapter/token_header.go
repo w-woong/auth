@@ -7,13 +7,15 @@ import (
 type TokenHeader struct {
 	tokenIdentifierName string
 	idTokenName         string
+	tokenSourceName     string
 }
 
-func NewTokenHeader(tokenIdentifierName, idTokenName string) *TokenHeader {
+func NewTokenHeader(tokenIdentifierName, idTokenName, tokenSourceName string) *TokenHeader {
 
 	return &TokenHeader{
 		tokenIdentifierName: tokenIdentifierName,
 		idTokenName:         idTokenName,
+		tokenSourceName:     tokenSourceName,
 	}
 }
 
@@ -32,4 +34,12 @@ func (a *TokenHeader) GetIDToken(r *http.Request) string {
 
 func (a *TokenHeader) SetIDToken(w http.ResponseWriter, idToken string) {
 	w.Header().Set(a.idTokenName, idToken)
+}
+
+func (a *TokenHeader) GetTokenSource(r *http.Request) string {
+	return r.Header.Get(a.tokenSourceName)
+}
+
+func (a *TokenHeader) SetTokenSource(w http.ResponseWriter, tokenSource string) {
+	w.Header().Set(a.tokenSourceName, tokenSource)
 }

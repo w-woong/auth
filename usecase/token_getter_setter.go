@@ -34,6 +34,13 @@ func (u *tokenGetter) GetIDToken(r *http.Request) string {
 	}
 	return u.header.GetIDToken(r)
 }
+func (u *tokenGetter) GetTokenSource(r *http.Request) string {
+	val := u.cookie.GetTokenSource(r)
+	if val != "" {
+		return val
+	}
+	return u.header.GetTokenSource(r)
+}
 
 type tokenSetter struct {
 	cookie port.TokenCookie
@@ -55,4 +62,8 @@ func (u *tokenSetter) SetTokenIdentifier(w http.ResponseWriter, val string) {
 func (u *tokenSetter) SetIDToken(w http.ResponseWriter, val string) {
 	u.cookie.SetIDToken(w, val)
 	u.header.SetIDToken(w, val)
+}
+func (u *tokenSetter) SetTokenSource(w http.ResponseWriter, val string) {
+	u.cookie.SetTokenSource(w, val)
+	u.header.SetTokenSource(w, val)
 }

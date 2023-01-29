@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/w-woong/auth/dto"
+	commondto "github.com/w-woong/common/dto"
 )
 
 type AuthRequestUsc interface {
@@ -11,5 +12,5 @@ type AuthRequestUsc interface {
 	Find(ctx context.Context, id string) (dto.AuthRequest, error)
 	Remove(ctx context.Context, id string) (int64, error)
 
-	Signal(ctx context.Context, id string, token dto.Token) error
+	Signal(ctx context.Context, id string, token commondto.Token) error
 }

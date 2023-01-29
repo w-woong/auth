@@ -2,15 +2,13 @@ package main
 
 import (
 	"crypto/tls"
-	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-wonk/si"
@@ -23,14 +21,20 @@ import (
 	"github.com/w-woong/auth/port"
 	"github.com/w-woong/auth/usecase"
 	"github.com/w-woong/common"
+	commonadapter "github.com/w-woong/common/adapter"
 	"github.com/w-woong/common/configs"
 	"github.com/w-woong/common/logger"
+	commonport "github.com/w-woong/common/port"
 	"github.com/w-woong/common/txcom"
-	"github.com/w-woong/common/validators"
-	useradapter "github.com/w-woong/user/adapter"
-	userport "github.com/w-woong/user/port"
+	"github.com/w-woong/common/utils"
+	"github.com/w-woong/common/wrapper"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
+
+	// "go.elastic.co/apm/module/apmgorilla/v2"
+	postgresapm "go.elastic.co/apm/module/apmgormv2/v2/driver/postgres" // postgres with gorm
+	// _ "go.elastic.co/apm/module/apmsql/v2/pq" // postgres sql with pq
+	"go.elastic.co/apm/v2"
 )
 
 var (
@@ -45,8 +49,9 @@ var (
 	configName       string
 	maxProc          int
 
-	usePprof  = false
-	pprofAddr = ":56060"
+	usePprof    = false
+	pprofAddr   = ":56060"
+	autoMigrate = false
 )
 
 func init() {
@@ -57,11 +62,12 @@ func init() {
 	flag.StringVar(&certPem, "pem", "./certs/cert.pem", "server pem")
 	flag.IntVar(&readTimeout, "readTimeout", 30, "read timeout")
 	flag.IntVar(&writeTimeout, "writeTimeout", 30, "write timeout")
-	flag.StringVar(&configName, "config", "./configs/server.yml", "config file name")
+	flag.StringVar(&configName, "config", "./configs/server-google.yml", "config file name")
 	flag.IntVar(&maxProc, "mp", runtime.NumCPU(), "GOMAXPROCS")
 
 	flag.BoolVar(&usePprof, "pprof", false, "use pprof")
 	flag.StringVar(&pprofAddr, "pprof_addr", ":56060", "pprof listen address")
+	flag.BoolVar(&autoMigrate, "autoMigrate", false, "auto migrate")
 
 	flag.Parse()
 }
@@ -72,6 +78,14 @@ func main() {
 		return
 	}
 	runtime.GOMAXPROCS(maxProc)
+
+	var err error
+	// apm
+	apmActive, _ := strconv.ParseBool(os.Getenv("ELASTIC_APM_ACTIVE"))
+	if apmActive {
+		tracer := apm.DefaultTracer()
+		defer tracer.Flush(nil)
+	}
 
 	// config
 	conf := common.Config{}
@@ -89,21 +103,43 @@ func main() {
 		conf.Logger.File.MaxAge, conf.Logger.File.Compressed)
 	defer logger.Close()
 
-	// db
-	sqlDB, err := si.OpenSqlDB(conf.Server.Repo.Driver, conf.Server.Repo.ConnStr,
-		conf.Server.Repo.MaxIdleConns, conf.Server.Repo.MaxOpenConns,
-		time.Duration(conf.Server.Repo.ConnMaxLifetimeMinutes)*time.Minute)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer sqlDB.Close()
-
-	// gorm
+	// db, gorm
 	var gormDB *gorm.DB
 	switch conf.Server.Repo.Driver {
 	case "pgx":
-		gormDB, err = sigorm.OpenPostgres(sqlDB)
+		if apmActive {
+			gormDB, err = gorm.Open(postgresapm.Open(conf.Server.Repo.ConnStr),
+				&gorm.Config{Logger: logger.OpenGormLogger(conf.Server.Repo.LogLevel)},
+			)
+			if err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+			db, err := gormDB.DB()
+			if err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+			defer db.Close()
+		} else {
+			// db
+			// var db *sql.DB
+			db, err := si.OpenSqlDB(conf.Server.Repo.Driver, conf.Server.Repo.ConnStr,
+				conf.Server.Repo.MaxIdleConns, conf.Server.Repo.MaxOpenConns, time.Duration(conf.Server.Repo.ConnMaxLifetimeMinutes)*time.Minute)
+			if err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+			defer db.Close()
+
+			gormDB, err = sigorm.OpenPostgresWithConfig(db,
+				&gorm.Config{Logger: logger.OpenGormLogger(conf.Server.Repo.LogLevel)},
+			)
+			if err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+		}
 	case "map":
 	default:
 		logger.Error(conf.Server.Repo.Driver + " is not allowed")
@@ -129,16 +165,20 @@ func main() {
 	scopes := conf.Client.Oauth2.Scopes
 	authUrl := conf.Client.Oauth2.AuthUrl
 	tokenUrl := conf.Client.Oauth2.TokenUrl
-	openIDConfUrl := conf.Client.Oauth2.OpenIDConfUrl
-	jwksUrl, err := getJwksUrl(openIDConfUrl)
+	openIDConf, err := utils.GetOpenIDConfig(conf.Client.Oauth2.OpenIDConfUrl)
 	if err != nil {
 		logger.Error(err.Error())
-		return
+		os.Exit(1)
+	}
+	jwksUrl, err := utils.GetJwksUrl(conf.Client.Oauth2.OpenIDConfUrl)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
 	}
 	// repo
 
-	tokenCookie := adapter.NewTokenCookie(1*time.Hour, "tid", "id_token")
-	tokenHeader := adapter.NewTokenHeader("tid", "id_token")
+	tokenCookie := adapter.NewTokenCookie(1*time.Hour, conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName, conf.Client.Oauth2.Token.TokenSourceKeyName)
+	tokenHeader := adapter.NewTokenHeader(conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName, conf.Client.Oauth2.Token.TokenSourceKeyName)
 
 	var tokenTxBeginner common.TxBeginner
 	var tokenRepo port.TokenRepo
@@ -155,7 +195,6 @@ func main() {
 		authRequestTxBeginner = txcom.NewGormTxBeginner(gormDB)
 		authRequestRepo = adapter.NewAuthRequestPg(gormDB)
 
-		gormDB.AutoMigrate(&entity.Token{}, &entity.AuthState{}, &entity.AuthRequest{})
 	case "map":
 		tokenTxBeginner = txcom.NewLockTxBeginner()
 		tokenRepo = adapter.NewMapToken()
@@ -169,14 +208,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	var userSvc userport.UserSvc
+	if autoMigrate {
+		gormDB.AutoMigrate(&entity.Token{}, &entity.AuthState{}, &entity.AuthRequest{})
+	}
+	var userSvc commonport.UserSvc
 	if conf.Client.UserHttp.Url != "" {
-		userSvc = useradapter.NewUserHttp(sihttp.DefaultInsecureClient(),
-			conf.Client.Oauth2.Token.Source,
+		userSvc = commonadapter.NewUserHttp(sihttp.DefaultInsecureClient(),
+			// conf.Client.Oauth2.Token.Source,
 			conf.Client.UserHttp.Url,
-			conf.Client.UserHttp.BearerToken)
+			conf.Client.UserHttp.BearerToken,
+			conf.Client.Oauth2.Token.TokenSourceKeyName,
+			conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
+	} else if conf.Client.UserGrpc.Addr != "" {
+		conn, err := wrapper.NewGrpcClient(conf.Client.UserGrpc, false)
+		if err != nil {
+			logger.Error(err.Error())
+			os.Exit(1)
+		}
+		userSvc = commonadapter.NewUserGrpc(conn)
 	} else {
-		userSvc = useradapter.NewUserSvcNop()
+		userSvc = commonadapter.NewUserSvcNop()
 	}
 
 	oauthConfig := oauth2.Config{
@@ -191,21 +242,31 @@ func main() {
 			AuthStyle: oauth2.AuthStyleInParams,
 		},
 	}
+
+	jwksStore, err := utils.NewJwksCache(jwksUrl)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+	validator := commonadapter.NewJwksIDTokenValidator(jwksStore, conf.Client.Oauth2.Token.TokenSourceKeyName, conf.Client.Oauth2.Token.IDKeyName, conf.Client.Oauth2.Token.IDTokenKeyName)
+
 	tokenUsc := usecase.NewTokenUsc(tokenTxBeginner, tokenRepo,
-		authStateTxBeginner, authStateRepo,
-		&oauthConfig, userSvc, entity.TokenSource(conf.Client.Oauth2.Token.Source))
-	validator := validators.NewJwksIDTokenValidator(jwksUrl)
+		entity.TokenSource(conf.Client.Oauth2.Token.Source), openIDConf, &oauthConfig,
+		validator, userSvc)
+
 	authRequestUsc := usecase.NewAuthRequest(
 		conf.Client.Oauth2.AuthRequest.ResponseUrl,
 		conf.Client.Oauth2.AuthRequest.AuthUrl,
 		authRequestTxBeginner, authRequestRepo)
+
+	authStateUsc := usecase.NewAuthStateUsc(authStateTxBeginner, authStateRepo)
 
 	tokenGetter := usecase.NewTokenGetter(tokenCookie, tokenHeader)
 	tokenSetter := usecase.NewTokenSetter(tokenCookie, tokenHeader)
 
 	// 라우터, gorilla mux를 쓴다
 	router := mux.NewRouter()
-	route.AuthorizeHandlerRoute(router, tokenUsc, validator, authRequestUsc,
+	route.AuthorizeHandlerRoute(router, tokenUsc, authStateUsc, authRequestUsc,
 		tokenGetter, tokenSetter, time.Duration(conf.Client.Oauth2.AuthRequest.Wait)*time.Second)
 
 	// http 서버 생성
@@ -218,37 +279,24 @@ func main() {
 		strings.Split(conf.Server.Http.AllowedMethods, ","),
 	)
 
+	// ticker
+	ticker := time.NewTicker(time.Duration(tickIntervalSec) * time.Second)
+	tickerDone := make(chan bool)
+	common.StartTicker(tickerDone, ticker, func(t time.Time) {
+		logger.Info(fmt.Sprintf("NoOfGR:%v, %v", runtime.NumGoroutine(), t))
+	})
+
+	// signal, wait for it to shutdown http server.
+	common.StartSignalStopper(httpServer, syscall.SIGINT, syscall.SIGTERM)
+
 	// start
 	logger.Info("start listening on " + addr)
 	if err = httpServer.Start(); err != nil {
 		logger.Error(err.Error())
 	}
 
-	// if certPem != "" && certKey != "" {
-	// 	log.Fatal(httpServer.ListenAndServeTLS(certPem, certKey))
-	// } else {
-	// 	log.Fatal(httpServer.ListenAndServe())
-	// }
-}
-
-func getJwksUrl(openIDConfUrl string) (string, error) {
-
-	res, err := http.Get(openIDConfUrl)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-	resb, err := io.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-	m := make(map[string]interface{})
-	if err = json.Unmarshal(resb, &m); err != nil {
-		return "", err
-	}
-	jwksUrl, ok := m["jwks_uri"]
-	if !ok {
-		return "", errors.New("not found")
-	}
-	return jwksUrl.(string), nil
+	// finish
+	ticker.Stop()
+	tickerDone <- true
+	logger.Info("finished")
 }
