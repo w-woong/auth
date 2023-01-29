@@ -158,7 +158,7 @@ func (u *TokenUsc) RegisterUser(ctx context.Context, tokenID string, claims comm
 				Priority: 0,
 			},
 		},
-		Password: commondto.Password{
+		CredentialToken: commondto.CredentialToken{
 			Value: tokenID,
 		},
 		Personal: commondto.Personal{
