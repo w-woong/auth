@@ -338,8 +338,8 @@ github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PK
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/subosito/gotenv v1.4.1 h1:jyEFiXpy21Wm81FBN71l9VoMMV8H8jG+qIK3GCpY6Qs=
 github.com/subosito/gotenv v1.4.1/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
-github.com/w-woong/common v0.0.57 h1:152qiGb0fGuVC3eXydhBM040nzFxPHBWgbpHWYlLtHQ=
-github.com/w-woong/common v0.0.57/go.mod h1:Q15+D+3Ki9Flwrncf0bdZcJZvvgP0xzld6YiVlujkMw=
+github.com/w-woong/common v0.0.58 h1:QCKU6bjt59rAsrXg9vW8ZmOTVeqHg4uZg7YeRjMPt4w=
+github.com/w-woong/common v0.0.58/go.mod h1:Q15+D+3Ki9Flwrncf0bdZcJZvvgP0xzld6YiVlujkMw=
 github.com/wonksing/structmapper v0.0.4 h1:AyDLkyLMdGS3Nuln9IMF6bNiQktcUUFv6k3wgY8UD48=
 github.com/wonksing/structmapper v0.0.4/go.mod h1:adymR5XTDyTNUuUWHZNE5ODPwNCMQl2MAm+IggQCCKE=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
